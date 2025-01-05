@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+
 	"golang.org/x/crypto/curve25519"
 )
 
@@ -126,4 +128,33 @@ for i, val := range row {
 	}
 }
 return -1 // Return -1 if no entry is found
+}
+func (es *Eschelon)inverse()([][]curve25519.Scalar,error){
+	if len(es.Coefficients)==0{
+		return nil,errors.New("No coefficients to decode")
+	}
+	if len(es.Eschelon)!=len(es.Coefficients[0]){
+		return nil,errors.New("The eschelon form is not square")
+	}
+	inverse := make([][]curve25519.Scalar, len(es.Transform))
+	for i := range es.Transform {
+		inverse[i] = make([]curve25519.Scalar, len(es.Transform[i]))
+		copy(inverse[i], es.Transform[i])
+	}
+
+	for i := len(es.Eschelon) - 1; i >= 0; i-- {
+		pivot := 1 / es.Eschelon[i][i] //inverse of scalar using package or something
+		for k := range inverse[i] {
+			inverse[i][k] *= pivot
+		}
+		for j := i + 1; j < len(es.Eschelon); j++ {
+			diff := es.Eschelon[i][j] * pivot
+			for k := range es.Eschelon {
+				actualDiff := inverse[j][k] * diff
+				inverse[i][k] -= actualDiff
+			}
+		}
+	}
+
+	return inverse, nil
 }
