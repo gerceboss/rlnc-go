@@ -121,3 +121,95 @@ func NewSource(committer Committer,block []byte,numChunks int)(*Node,error){
 		committer: committer,
 	},nil
 }
+
+
+func (n *Node) CheckExistingCommitments(commitments []curve25519.Point)error{
+	if len(n.commitments)!=0{
+		if len(n.commitments)!=len(commitments){
+			return errors.New("The number of commitments is different")
+		}
+		for i:=range commitments{
+			if n.commitments[i]!=commitments[i]{
+				return errors.New("The commitments donot match")
+			}
+		}
+	}
+	return nil
+}
+
+func (n *Node) CheckExistingChunks(chunk Chunk) error{
+	if len(n.chunks)!=0{
+		if len(n.chunks[0])!=len(chunk.data){
+			return errors.New("The chunk size iis different")
+		}
+	}
+	return nil
+}
+// return in a better manner form this function
+func (n *Node) Receive(message Message)ReceiveError{
+	err:=n.CheckExistingCommitments(message.commitments)
+	if err!=nil{
+		return *ExistingChunksMismatch(err.Error())
+	}
+
+	err2:= n.CheckExistingChunks(message.chunk)
+	if err2!=nil{
+		return *ExistingChunksMismatch(err2.Error())
+	}
+
+	err3:=message.Verify(n.committer)
+	if err3!=nil{
+		return *InvalidMessage(err3.Error())
+	}
+
+	//Verify linear independence
+	if !n.eschelon.AddRow(message.chunk.coefficients){
+		return *LinearlyDependentChunk
+	}
+
+	n.chunks = append(n.chunks, message.chunk.data)
+
+	if len(n.commitments)==0{
+		n.commitments=message.commitments
+	}
+	return ReceiveError{}
+}
+
+func (n *Node) Send() (Message,error){
+	if len(n.chunks)==0{
+		return Message{},errors.New("There are no chunks to send")
+	}
+	scalars:=// generate random coefficeints
+	chunk:=n.LinearCombChunk(scalars)
+	message:=NewMessage(chunk,n.commitments)
+	err:=message.Verify(n.committer)
+	if err!=nil{
+		return Message{},err
+	}
+	return message,nil
+}
+
+func (n *Node) LinearCombChunk(scalars []byte)Chunk{
+	coefficients:=n.eschelon.compoundScalars(scalars)
+	data:=n.LinearCombData(scalars)
+	return Chunk{
+		coefficients: coefficients,
+		data:data,
+	}
+
+}
+func (n *Node) LinearCombData(scalars []byte)[]curve25519.Scalar{
+
+	result := make([]curve25519.Scalar, len(n.chunks[0]))
+	for i := 0; i < len(n.chunks[0]); i++ {
+		sum := 0
+		for j, scalar := range scalars {
+			if j >= len(n.chunks) {
+				return nil, errors.New("Mismatch between scalars and chunks")
+			}
+			sum += scalar * n.chunks[j][i] //Scalar multiplication
+		}
+		result[i] = sum
+	}
+	return result
+}
