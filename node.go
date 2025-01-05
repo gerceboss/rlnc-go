@@ -198,8 +198,8 @@ func (n *Node) LinearCombChunk(scalars []byte)Chunk{
 	}
 
 }
-func (n *Node) LinearCombData(scalars []byte)[]curve25519.Scalar{
 
+func (n *Node) LinearCombData(scalars []byte)[]curve25519.Scalar{
 	result := make([]curve25519.Scalar, len(n.chunks[0]))
 	for i := 0; i < len(n.chunks[0]); i++ {
 		sum := 0
@@ -212,4 +212,35 @@ func (n *Node) LinearCombData(scalars []byte)[]curve25519.Scalar{
 		result[i] = sum
 	}
 	return result
+}
+
+func (n *Node) Decode()([]byte,error){
+	inverse,err:=n.eschelon.inverse()
+	if err!=nil{
+		return []byte{},err
+	}
+	// ret:=make([]byte,len(n.committments)*len(n.chunks[0])*32) // should be just made variable length to avoid mistake of putting bytes in wrong place 
+	var ret []byte
+	for i := 0; i < len(inverse); i++ {
+		for k := 0; k < len(n.chunks[0]); k++ {
+			sum := 0
+			for j := 0; j < len(inverse); j++ {
+				sum += inverse[i][j] * n.chunks[j][k] // Scalar multiplication
+			}
+			ret:=append(ret, byte(sum)) 
+		}
+	}
+	return ret, nil
+}
+func (n *Node) Chunks() [][]curve25519.Scalar{
+	return n.chunks
+}
+
+
+func (n *Node) Commitments() []curve25519.Point{
+	return n.commitments
+}
+
+func (n *Node) IsFull() bool{
+	return n.eschelon.IsFull()
 }
