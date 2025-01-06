@@ -3,7 +3,8 @@ package main
 import (
 	"errors"
 	"fmt"
-
+	"math/rand"
+	"time"
 	"golang.org/x/crypto/curve25519"
 )
 
@@ -243,4 +244,14 @@ func (n *Node) Commitments() []curve25519.Point{
 
 func (n *Node) IsFull() bool{
 	return n.eschelon.IsFull()
+}
+
+
+func GenerateRandomCoeffs(len int) []uint8{
+	rand.Seed(time.Now().UnixNano()) 
+	coeffs := make([]uint8, length)
+	for i := 0; i < length; i++ {
+		coeffs[i] = uint8(rand.Intn(256)) 
+	}
+	return coeffs
 }

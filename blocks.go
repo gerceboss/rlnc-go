@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"math/rand"
+	"time"
 
 	"golang.org/x/crypto/curve25519"
 )
@@ -64,4 +66,25 @@ func block_to_chunks(block []byte,num_chunks int)([][]byte,error){
 		chunks = append(chunks, block[i:i+chunkSize])
 	}
 	return chunks, nil
+}
+
+func RandomU8Slice(len int)[]uint8{
+	rand.Seed(time.Now().UnixNano())
+	ret := make([]uint8, len)
+	for i := 0; i < len; i++ {
+		ret[i] = uint8(rand.Intn(256)) 
+	}
+	for i:=31;i<len;i+=32{
+		ret[i]=0
+	}
+	return ret
+}
+
+func generators(n int)[]curve25519.Point{
+	result:=make([]curve25519.Point,n)
+	for i:=0;i<n;i++{
+		// fix this
+		result[i]= BasePoint*Scalar(rand.Intn(128)) //scalar multiplication with the ristretto_basepoint
+	}
+	result
 }
