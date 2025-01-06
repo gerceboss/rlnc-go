@@ -2,4 +2,4 @@ module rlnc
 
 go 1.22.2
 
-require golang.org/x/crypto v0.31.0
+require github.com/bwesterb/go-ristretto v1.2.3

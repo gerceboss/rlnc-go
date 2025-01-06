@@ -5,11 +5,11 @@ import (
 	"math/rand"
 	"time"
 
-	"golang.org/x/crypto/curve25519"
+	"github.com/bwesterb/go-ristretto"
 )
 
 type Committer struct{
-	Generators []curve25519.Point
+	Generators []ristretto.Point
 }
 
 func NewCommitter(n int) *Committer{
@@ -23,13 +23,13 @@ func (c *Committer ) Len() int{
 }
 
 // Commit computes the commitment for the given scalars.
-func (c *Committer) Commit(scalars []curve25519.Scalar) (curve25519.Point, error) {
+func (c *Committer) Commit(scalars []ristretto.Scalar) (ristretto.Point, error) {
 	if len(scalars) > len(c.Generators) {
-		return curve25519.Point{}, errors.New("chunk size is too large")
+		return ristretto.Point{}, errors.New("chunk size is too large")
 	}
 
 	// Multiscalar multiplication
-	result := curve25519.NewIdentityPoint()
+	result := curve25519.NewIdentityPoint() //fix this
 	for i, scalar := range scalars {
 		term := curve25519.NewIdentityPoint()
 		term.Mul(&c.Generators[i], &scalar)
@@ -40,16 +40,18 @@ func (c *Committer) Commit(scalars []curve25519.Scalar) (curve25519.Point, error
 }
 
 
-func chunk_to_scalars(chunk []byte) ([]curve25519.Scalar,error){
+func chunk_to_scalars(chunk []byte) ([]ristretto.Scalar,error){
 
 	if len(chunk)%32!=0{
 		return nil,errors.New("Chunk size is not divisible by 32")
 	}
 
-	scalars := []curve25519.Scalar{}
+	scalars := []ristretto.Scalar{}
 	for i := 0; i < len(chunk); i += 32 {
-		var scalar curve25519.Scalar
-		scalar.SetBytes(chunk[i : i+32])
+		var scalar ristretto.Scalar
+		var temp [32]byte
+		copy(temp[:], chunk[i:i+32])
+		scalar.SetBytes(&temp)
 		scalars = append(scalars, scalar)
 	}
 
@@ -80,11 +82,13 @@ func RandomU8Slice(len int)[]uint8{
 	return ret
 }
 
-func generators(n int)[]curve25519.Point{
-	result:=make([]curve25519.Point,n)
+func generators(n int)[]ristretto.Point{
+	result:=make([]ristretto.Point,n)
 	for i:=0;i<n;i++{
-		// fix this
-		result[i]= BasePoint*Scalar(rand.Intn(128)) //scalar multiplication with the ristretto_basepoint
+		var c ristretto.Point
+		var r ristretto.Scalar
+		r.Rand()
+		result[i]= *c.PublicScalarMultBase(&r) //scalar multiplication with the ristretto_basepoint
 	}
-	result
+	return result
 }

@@ -3,33 +3,33 @@ package main
 import (
 	"errors"
 
-	"golang.org/x/crypto/curve25519"
+	"github.com/bwesterb/go-ristretto"
 )
 
 type Eschelon struct{
-	Coefficients [][]curve25519.Scalar
-	Eschelon [][]curve25519.Scalar
-	Transform [][]curve25519.Scalar
+	Coefficients [][]ristretto.Scalar
+	Eschelon [][]ristretto.Scalar
+	Transform [][]ristretto.Scalar
 }
 
 func NewEschelon(size int) *Eschelon{
-	transform := make([][]curve25519.Scalar, size) // usinng make ensures that initialisation is with Scalar::Zero value
+	transform := make([][]ristretto.Scalar, size)
 	for i := range transform {
-		transform[i] = make([]curve25519.Scalar, size)
-		transform[i][i] = 1 //replace by Scalar::ONE
+		transform[i] = make([]ristretto.Scalar, size)
+		transform[i][i].SetOne() 
 	}
 	return &Eschelon{
-		Coefficients :[][]curve25519.Scalar{},
-		Eschelon :[][]curve25519.Scalar{},
+		Coefficients :[][]ristretto.Scalar{},
+		Eschelon :[][]ristretto.Scalar{},
 		Transform:transform,
 	}
 
 }
 func NewIdentity(size int) *Eschelon{
-	eschelon:=make([][]curve25519.Scalar,size)
+	eschelon:=make([][]ristretto.Scalar,size)
 	for i:=range eschelon{
-		eschelon[i]=make([]curve25519.Scalar,size)
-		eschelon[i][i]=1
+		eschelon[i]=make([]ristretto.Scalar,size)
+		eschelon[i][i].SetOne()
 	}
 	return &Eschelon{
 		Coefficients: eschelon,
@@ -42,11 +42,11 @@ func NewIdentity(size int) *Eschelon{
 func (es *Eschelon)IsFull() bool{
 	return len(es.Coefficients)==len(es.Coefficients[0])
 }
- func (es *Eschelon)AddRow(row []curve25519.Scalar)bool{
+ func (es *Eschelon)AddRow(row []ristretto.Scalar)bool{
 	for i:=range row{
-		if row[i]!=0 {
+		if row[i].IsNonZeroI()==1 {
 			return false
-		}// scalar::zero{}
+		}
 	}
 	currentSize:=len(es.Coefficients)
 	if currentSize==len(row){
@@ -81,17 +81,23 @@ func (es *Eschelon)IsFull() bool{
 		f := newEschelonRow[j]
 
 		for index := range newEschelonRow {
-			newEschelonRow[index] = pivot*newEschelonRow[index] - es.Eschelon[i][index]*f
+			var r1,r2 ristretto.Scalar
+			r1.Mul(&pivot,&newEschelonRow[index]) 
+			r2.Mul(&es.Eschelon[i][index],&f)
+			newEschelonRow[index].Sub(&r1,&r2)
 		}
 		for index := range tr {
-			tr[index] = pivot*tr[index] - es.Transform[i][index]*f
+			var r1,r2 ristretto.Scalar
+			r1.Mul(&pivot,&tr[index] ) 
+			r2.Mul(&es.Transform[i][index],&f)
+			tr[index].Sub(&r1,&r2)
 		}
 		i++
 	}
 	for i:=range newEschelonRow{
-		if newEschelonRow[i]!=0 {
+		if newEschelonRow[i].IsNonZeroI()==1 {
 			return false
-		}// scalar::zero{}
+		}
 	}
 
 	es.Eschelon = append(es.Eschelon[:i], append(newEschelonRow, es.Eschelon[i:]...)...)
@@ -106,14 +112,17 @@ func (es *Eschelon)IsFull() bool{
 	return true
 }
 
-func (es *Eschelon) compoundScalars(scalars []byte) []curve25519.Scalar{
-	result := make([]curve25519.Scalar, len(es.Transform))
+func (es *Eschelon) compoundScalars(scalars []byte) []ristretto.Scalar{
+	result := make([]ristretto.Scalar, len(es.Transform))
 
-	// heck if i, j are in wrong position 
+	// check if i, j are in wrong position 
 	for j := 0; j < len(es.Transform); j++ {
-		sum := 0// scalar::zero
+		var sum ristretto.Scalar
+		sum.SetZero()
 		for i, scalar := range scalars {
-			sum += scalar* es.Coefficients[i][j] //check this multiplication
+			var s ristretto.Scalar
+			scalarSlice:=[]byte{scalar}
+			sum.MulAdd(&*s.Derive(scalarSlice), &es.Coefficients[i][j],&sum) //check this multiplication
 		}
 		result[j] = sum
 	}
@@ -121,37 +130,40 @@ func (es *Eschelon) compoundScalars(scalars []byte) []curve25519.Scalar{
 }
 
 // return the index of the first valid entry
-func firstEntry(row []curve25519.Scalar) int {
+func firstEntry(row []ristretto.Scalar) int {
 for i, val := range row {
-	if val != 0 {
+	if val.IsNonZeroI()==1 {
 		return i
 	}
 }
 return -1 // Return -1 if no entry is found
 }
-func (es *Eschelon)inverse()([][]curve25519.Scalar,error){
+func (es *Eschelon)inverse()([][]ristretto.Scalar,error){
 	if len(es.Coefficients)==0{
 		return nil,errors.New("No coefficients to decode")
 	}
 	if len(es.Eschelon)!=len(es.Coefficients[0]){
 		return nil,errors.New("The eschelon form is not square")
 	}
-	inverse := make([][]curve25519.Scalar, len(es.Transform))
+	inverse := make([][]ristretto.Scalar, len(es.Transform))
 	for i := range es.Transform {
-		inverse[i] = make([]curve25519.Scalar, len(es.Transform[i]))
+		inverse[i] = make([]ristretto.Scalar, len(es.Transform[i]))
 		copy(inverse[i], es.Transform[i])
 	}
 
 	for i := len(es.Eschelon) - 1; i >= 0; i-- {
-		pivot := 1 / es.Eschelon[i][i] //inverse of scalar using package or something
+		var pivot ristretto.Scalar
+		pivot.Inverse(&es.Eschelon[i][i])
 		for k := range inverse[i] {
-			inverse[i][k] *= pivot
+			inverse[i][k].Mul(&pivot,&inverse[i][k])
 		}
 		for j := i + 1; j < len(es.Eschelon); j++ {
-			diff := es.Eschelon[i][j] * pivot
+			var diff ristretto.Scalar
+			diff.Mul(&es.Eschelon[i][j],&pivot)
 			for k := range es.Eschelon {
-				actualDiff := inverse[j][k] * diff
-				inverse[i][k] -= actualDiff
+				var actualDiff ristretto.Scalar
+				actualDiff.Mul(&inverse[j][k],&diff)
+				inverse[i][k].Sub(&inverse[i][k],&actualDiff)
 			}
 		}
 	}

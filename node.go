@@ -5,21 +5,22 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
-	"golang.org/x/crypto/curve25519"
+
+	"github.com/bwesterb/go-ristretto"
 )
 
 type Message struct{
 	chunk Chunk
-	commitments []curve25519.Point //ristretto point
+	commitments []ristretto.Point //ristretto point
 }
 type Chunk struct{
-	data []curve25519.Scalar
-	coefficients []curve25519.Scalar
+	data []ristretto.Scalar
+	coefficients []ristretto.Scalar
 }
 
 type Node struct{
-	chunks [][]curve25519.Scalar
-	commitments []curve25519.Point //ristretto point
+	chunks [][]ristretto.Scalar
+	commitments []ristretto.Point //ristretto point
 	eschelon Eschelon
 	committer Committer
 }
@@ -56,14 +57,14 @@ var (
 )
 
 // use ristretto
-func NewMessage(chunk Chunk,commitments []curve25519.Point)(*Message){
+func NewMessage(chunk Chunk,commitments []ristretto.Point)(*Message){
 	return &Message{
 		chunk:chunk,
 		commitments: commitments,
 	}
 }
 
-func (m *Message) CoefficientsToScalars() []curve25519.Scalar{
+func (m *Message) CoefficientsToScalars() []ristretto.Scalar{
 	return m.chunk.coefficients
 }
 
@@ -79,7 +80,7 @@ func (m *Message) Verify(committer Committer)error{
 	}
 	return nil
 }
-func (m *Message) Coefficients() []curve25519.Scalar{
+func (m *Message) Coefficients() []ristretto.Scalar{
 	return m.chunk.coefficients
 }
 
@@ -87,8 +88,8 @@ func (m *Message) Coefficients() []curve25519.Scalar{
 func NewNode(committer Committer,numChunks int) *Node{
 	eschelon:=NewEschelon(numChunks)
 	return &Node{
-		chunks: [][]curve25519.Scalar{},
-		commitments: []curve25519.Point{}, //ristretto point
+		chunks: [][]ristretto.Scalar{},
+		commitments: []ristretto.Point{}, //ristretto point
 		eschelon : *eschelon, 
 		committer :committer,
 	}
@@ -99,7 +100,7 @@ func NewSource(committer Committer,block []byte,numChunks int)(*Node,error){
 	if err!=nil{
 		return nil,err
 	}
-	var chunks []curve25519.Scalar
+	var chunks [][]ristretto.Scalar
 	for i:=range chunkies{
 		it,err:=chunk_to_scalars(chunkies[i])
 		if err!=nil{
@@ -107,7 +108,7 @@ func NewSource(committer Committer,block []byte,numChunks int)(*Node,error){
 		}
 		chunks = append(chunks,it)
 	}
-	var commitments []curve25519.Scalar
+	var commitments []ristretto.Point
 	for i:=range chunks{
 		res,err:=committer.Commit(chunks[i])
 		if err!=nil{
@@ -124,7 +125,7 @@ func NewSource(committer Committer,block []byte,numChunks int)(*Node,error){
 }
 
 
-func (n *Node) CheckExistingCommitments(commitments []curve25519.Point)error{
+func (n *Node) CheckExistingCommitments(commitments []ristretto.Point)error{
 	if len(n.commitments)!=0{
 		if len(n.commitments)!=len(commitments){
 			return errors.New("The number of commitments is different")
@@ -180,9 +181,9 @@ func (n *Node) Send() (Message,error){
 	if len(n.chunks)==0{
 		return Message{},errors.New("There are no chunks to send")
 	}
-	scalars:=// generate random coefficeints
+	scalars:=GenerateRandomCoeffs(len(n.chunks))// generate random coefficeints
 	chunk:=n.LinearCombChunk(scalars)
-	message:=NewMessage(chunk,n.commitments)
+	message:= *NewMessage(chunk,n.commitments)
 	err:=message.Verify(n.committer)
 	if err!=nil{
 		return Message{},err
@@ -200,15 +201,19 @@ func (n *Node) LinearCombChunk(scalars []byte)Chunk{
 
 }
 
-func (n *Node) LinearCombData(scalars []byte)[]curve25519.Scalar{
-	result := make([]curve25519.Scalar, len(n.chunks[0]))
+func (n *Node) LinearCombData(scalars []byte)[]ristretto.Scalar{
+	result := make([]ristretto.Scalar, len(n.chunks[0]))
 	for i := 0; i < len(n.chunks[0]); i++ {
-		sum := 0
+		var sum ristretto.Scalar
+		sum.SetZero()
 		for j, scalar := range scalars {
 			if j >= len(n.chunks) {
-				return nil, errors.New("Mismatch between scalars and chunks")
+				return nil
 			}
-			sum += scalar * n.chunks[j][i] //Scalar multiplication
+			scalarSlice:=[]byte{scalar}
+			var temp ristretto.Scalar
+			temp.Derive(scalarSlice)
+			sum.MulAdd(&temp ,&n.chunks[j][i],&sum) //Scalar multiplication
 		}
 		result[i] = sum
 	}
@@ -224,21 +229,22 @@ func (n *Node) Decode()([]byte,error){
 	var ret []byte
 	for i := 0; i < len(inverse); i++ {
 		for k := 0; k < len(n.chunks[0]); k++ {
-			sum := 0
+			var sum ristretto.Scalar
+			sum.SetZero()
 			for j := 0; j < len(inverse); j++ {
-				sum += inverse[i][j] * n.chunks[j][k] // Scalar multiplication
+				sum.MulAdd(&inverse[i][j],&n.chunks[j][k],&sum) // Scalar multiplication
 			}
-			ret:=append(ret, byte(sum)) 
+			ret=append(ret, sum.Bytes()...) 
 		}
 	}
 	return ret, nil
 }
-func (n *Node) Chunks() [][]curve25519.Scalar{
+func (n *Node) Chunks() [][]ristretto.Scalar{
 	return n.chunks
 }
 
 
-func (n *Node) Commitments() []curve25519.Point{
+func (n *Node) Commitments() []ristretto.Point{
 	return n.commitments
 }
 
@@ -249,8 +255,8 @@ func (n *Node) IsFull() bool{
 
 func GenerateRandomCoeffs(len int) []uint8{
 	rand.Seed(time.Now().UnixNano()) 
-	coeffs := make([]uint8, length)
-	for i := 0; i < length; i++ {
+	coeffs := make([]uint8, len)
+	for i := 0; i < len; i++ {
 		coeffs[i] = uint8(rand.Intn(256)) 
 	}
 	return coeffs
