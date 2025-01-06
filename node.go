@@ -69,13 +69,13 @@ func (m *Message) CoefficientsToScalars() []ristretto.Scalar{
 }
 
 func (m *Message) Verify(committer Committer)error{
-	 msm:=MSM(m.CoefficientsToScalars(), m.commitments) // finc the necessary package for ristretto
+	msm:=MSM(m.CoefficientsToScalars(), m.commitments) // finc the necessary package for ristretto
 	commitment,err:=committer.Commit(m.chunk.data)
 	if err!=nil{
 		return err
 	}
 	if msm!=commitment{
-		return errors.New("The commitment does not match")
+		return errors.New("the commitment does not match")
 
 	}
 	return nil
@@ -128,11 +128,11 @@ func NewSource(committer Committer,block []byte,numChunks int)(*Node,error){
 func (n *Node) CheckExistingCommitments(commitments []ristretto.Point)error{
 	if len(n.commitments)!=0{
 		if len(n.commitments)!=len(commitments){
-			return errors.New("The number of commitments is different")
+			return errors.New("the number of commitments is different")
 		}
 		for i:=range commitments{
 			if n.commitments[i]!=commitments[i]{
-				return errors.New("The commitments donot match")
+				return errors.New("the commitments donot match")
 			}
 		}
 	}
@@ -142,7 +142,7 @@ func (n *Node) CheckExistingCommitments(commitments []ristretto.Point)error{
 func (n *Node) CheckExistingChunks(chunk Chunk) error{
 	if len(n.chunks)!=0{
 		if len(n.chunks[0])!=len(chunk.data){
-			return errors.New("The chunk size iis different")
+			return errors.New("the chunk size iis different")
 		}
 	}
 	return nil
@@ -179,7 +179,7 @@ func (n *Node) Receive(message Message)ReceiveError{
 
 func (n *Node) Send() (Message,error){
 	if len(n.chunks)==0{
-		return Message{},errors.New("There are no chunks to send")
+		return Message{},errors.New("there are no chunks to send")
 	}
 	scalars:=GenerateRandomCoeffs(len(n.chunks))// generate random coefficeints
 	chunk:=n.LinearCombChunk(scalars)
@@ -260,4 +260,15 @@ func GenerateRandomCoeffs(len int) []uint8{
 		coeffs[i] = uint8(rand.Intn(256)) 
 	}
 	return coeffs
+}
+
+// non constant-time implementation
+func MSM(scalars []ristretto.Scalar,points []ristretto.Point) ristretto.Point{
+	var f ristretto.Point
+	for i:=range scalars{
+		var temp ristretto.Point
+		temp.PublicScalarMult(&points[i],&scalars[i])
+		f.Add(&f,&temp)
+	}
+	return f
 }

@@ -99,13 +99,14 @@ func (es *Eschelon)IsFull() bool{
 			return false
 		}
 	}
-
-	es.Eschelon = append(es.Eschelon[:i], append(newEschelonRow, es.Eschelon[i:]...)...)
+	newEschelonRowSlice:=[][]ristretto.Scalar{newEschelonRow}
+	es.Eschelon = append(es.Eschelon[:i], append(newEschelonRowSlice, es.Eschelon[i:]...)...)
 	es.Coefficients = append(es.Coefficients, row)
 
 	if i < currentSize {
+		trSlice:=[][]ristretto.Scalar{tr}
 		es.Transform = append(es.Transform[:currentSize-1], es.Transform[currentSize:]...)
-		es.Transform = append(es.Transform[:i], append(tr, es.Transform[i:]...)...)
+		es.Transform = append(es.Transform[:i], append(trSlice, es.Transform[i:]...)...)
 		return true
 	}
 	es.Transform[i] = tr
@@ -122,7 +123,7 @@ func (es *Eschelon) compoundScalars(scalars []byte) []ristretto.Scalar{
 		for i, scalar := range scalars {
 			var s ristretto.Scalar
 			scalarSlice:=[]byte{scalar}
-			sum.MulAdd(&*s.Derive(scalarSlice), &es.Coefficients[i][j],&sum) //check this multiplication
+			sum.MulAdd(s.Derive(scalarSlice), &es.Coefficients[i][j],&sum) //check this multiplication
 		}
 		result[j] = sum
 	}
@@ -140,10 +141,10 @@ return -1 // Return -1 if no entry is found
 }
 func (es *Eschelon)inverse()([][]ristretto.Scalar,error){
 	if len(es.Coefficients)==0{
-		return nil,errors.New("No coefficients to decode")
+		return nil,errors.New("no coefficients to decode")
 	}
 	if len(es.Eschelon)!=len(es.Coefficients[0]){
-		return nil,errors.New("The eschelon form is not square")
+		return nil,errors.New("the eschelon form is not square")
 	}
 	inverse := make([][]ristretto.Scalar, len(es.Transform))
 	for i := range es.Transform {

@@ -27,16 +27,9 @@ func (c *Committer) Commit(scalars []ristretto.Scalar) (ristretto.Point, error) 
 	if len(scalars) > len(c.Generators) {
 		return ristretto.Point{}, errors.New("chunk size is too large")
 	}
-
 	// Multiscalar multiplication
-	result := curve25519.NewIdentityPoint() //fix this
-	for i, scalar := range scalars {
-		term := curve25519.NewIdentityPoint()
-		term.Mul(&c.Generators[i], &scalar)
-		result.Add(result, term)
-	}
-
-	return *result, nil
+	result:=MSM(scalars,c.Generators[:len(scalars)])
+	return result, nil
 }
 
 
@@ -60,7 +53,7 @@ func chunk_to_scalars(chunk []byte) ([]ristretto.Scalar,error){
 
 func block_to_chunks(block []byte,num_chunks int)([][]byte,error){
 	if len(block)%num_chunks!=0{
-		return nil,errors.New("Block size is not divisible by num_chunks")
+		return nil,errors.New("block size is not divisible by num_chunks")
 	}
 	chunkSize:=len(block)/num_chunks
 	var chunks [][]byte
