@@ -192,7 +192,7 @@ func (n *Node) Send() (Message,error){
 }
 
 func (n *Node) LinearCombChunk(scalars []byte)Chunk{
-	coefficients:=n.eschelon.compoundScalars(scalars)
+	coefficients:=n.eschelon.CompoundScalars(scalars)
 	data:=n.LinearCombData(scalars)
 	return Chunk{
 		coefficients: coefficients,
@@ -221,7 +221,7 @@ func (n *Node) LinearCombData(scalars []byte)[]ristretto.Scalar{
 }
 
 func (n *Node) Decode()([]byte,error){
-	inverse,err:=n.eschelon.inverse()
+	inverse,err:=n.eschelon.Inverse()
 	if err!=nil{
 		return []byte{},err
 	}

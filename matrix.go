@@ -43,10 +43,15 @@ func (es *Eschelon)IsFull() bool{
 	return len(es.Coefficients)==len(es.Coefficients[0])
 }
  func (es *Eschelon)AddRow(row []ristretto.Scalar)bool{
+	var chk int
+	// var z ristretto.Scalar
 	for i:=range row{
 		if row[i].IsNonZeroI()==1 {
-			return false
+			chk++
 		}
+	}
+	if chk==0{
+		return false
 	}
 	currentSize:=len(es.Coefficients)
 	if currentSize==len(row){
@@ -94,11 +99,17 @@ func (es *Eschelon)IsFull() bool{
 		}
 		i++
 	}
+
+	chk=0
 	for i:=range newEschelonRow{
 		if newEschelonRow[i].IsNonZeroI()==1 {
-			return false
+			chk++
 		}
 	}
+	if chk==0{
+		return false
+	}
+
 	newEschelonRowSlice:=[][]ristretto.Scalar{newEschelonRow}
 	es.Eschelon = append(es.Eschelon[:i], append(newEschelonRowSlice, es.Eschelon[i:]...)...)
 	es.Coefficients = append(es.Coefficients, row)
@@ -113,7 +124,7 @@ func (es *Eschelon)IsFull() bool{
 	return true
 }
 
-func (es *Eschelon) compoundScalars(scalars []byte) []ristretto.Scalar{
+func (es *Eschelon) CompoundScalars(scalars []byte) []ristretto.Scalar{
 	result := make([]ristretto.Scalar, len(es.Transform))
 
 	// check if i, j are in wrong position 
@@ -139,7 +150,7 @@ for i, val := range row {
 }
 return -1 // Return -1 if no entry is found
 }
-func (es *Eschelon)inverse()([][]ristretto.Scalar,error){
+func (es *Eschelon)Inverse()([][]ristretto.Scalar,error){
 	if len(es.Coefficients)==0{
 		return nil,errors.New("no coefficients to decode")
 	}
