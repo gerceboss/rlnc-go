@@ -1,7 +1,10 @@
 package main
 
-import ("testing"
-"github.com/bwesterb/go-ristretto")
+import (
+	"testing"
+
+	"github.com/bwesterb/go-ristretto"
+)
 func TestAddRow(t *testing.T){
 	eschelon:=NewEschelon(3)
 	var s1,s2,s3 ristretto.Scalar
@@ -40,28 +43,29 @@ func TestInverse(t *testing.T){
 	// add one more exampple to invert
 }
 
+// fails at 2nd, either bug in AddRow or CompoundScalars
 func TestCompoundScalars(t *testing.T){
 	eschelon:=NewEschelon(3)
 	scalars:=eschelon.CompoundScalars([]byte{1,2,3})
-	var s1,s2,s3 ristretto.Scalar
-	row:=[]ristretto.Scalar{*s1.SetUint64(0),*s2.SetUint64(0),*s3.SetUint64(0)}
 	for i:=range scalars{
-		if !scalars[i].Equals(&row[i]){
-			t.Errorf("coumpound scalars fail")
+		if scalars[i].IsNonZeroI()==1{
+			t.Errorf("compound scalars fail 1")
 		}
 	}
-
+	
 	eschelon=NewEschelon(3)
+	var s1,s2,s3 ristretto.Scalar
+	row:=[]ristretto.Scalar{*s1.SetUint64(6),*s2.SetUint64(15),*s3.SetUint64(5)}
 	row2:=[]ristretto.Scalar{*s1.SetUint64(2),*s2.SetUint64(0),*s3.SetUint64(0)}
-	row3:=[]ristretto.Scalar{*s1.SetUint64(0),*s2.SetUint64(3),*s3.SetUint64(1)}
 	eschelon.AddRow(row2)
+	row3:=[]ristretto.Scalar{*s1.SetUint64(0),*s2.SetUint64(3),*s3.SetUint64(1)}
 	eschelon.AddRow(row3)
 
 	scalars=eschelon.CompoundScalars([]byte{3,5})
-	row=[]ristretto.Scalar{*s1.SetUint64(6),*s2.SetUint64(15),*s3.SetUint64(5)}
 	for i:=range scalars{
-		if !scalars[i].Equals(&row[i]){
-			t.Errorf("coumpound scalars fail")
+		// fmt.Println(scalars[i].Bytes(),"!=",row[i].Bytes())
+		if scalars[i].EqualsI(&row[i])==0{
+			t.Errorf("coumpound scalars fail 2")
 		}
 	}
 }

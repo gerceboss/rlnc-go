@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/bwesterb/go-ristretto"
 )
@@ -131,11 +132,18 @@ func (es *Eschelon) CompoundScalars(scalars []byte) []ristretto.Scalar{
 	for j := 0; j < len(es.Transform); j++ {
 		var sum ristretto.Scalar
 		sum.SetZero()
-		for i, scalar := range scalars {
+		for i:=0;i<len(scalars);i++ {
 			var s ristretto.Scalar
-			scalarSlice:=[]byte{scalar}
-			sum.MulAdd(s.Derive(scalarSlice), &es.Coefficients[i][j],&sum) //check this multiplication
+			s.SetZero()
+			scalarSlice:=[]byte{scalars[i]}
+			if i<len(es.Coefficients){
+				var temp1,temp2 ristretto.Scalar
+				temp1.Set(&sum)
+				temp2.Set(s.Derive(scalarSlice))
+				sum.MulAdd(&temp2, &es.Coefficients[i][j],&temp1) //check this multiplication
+			}
 		}
+		fmt.Println(&sum)
 		result[j] = sum
 	}
 	return result
