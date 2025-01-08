@@ -15,9 +15,9 @@ type SimulationNode struct{
 
 type Network struct{
     nodes []SimulationNode
-    timestamp uint32
-    wastedBandwidth uint32
-    fullNodes int//usize
+    Timestamp uint32
+    WastedBandwidth uint32
+    FullNodes int//usize
     roundMessages []Message
     roundDestinations []int //usize
 }
@@ -70,16 +70,16 @@ func NewNetwork(committer Committer,numNodes int,meshSize int) *Network{
     nodes,_:=CreateNodes(committer,numNodes,numChunks,meshSize,RandomU8Slice(committer.Len()*numChunks*32))
     return &Network{
         nodes: nodes,
-        timestamp: 0,
-        wastedBandwidth: 0,
-        fullNodes: 1,
+        Timestamp: 0,
+        WastedBandwidth: 0,
+        FullNodes: 1,
         roundDestinations:[]int{} ,
         roundMessages: []Message{},
     }
 }
 
 func (net *Network)Round(){
-    net.timestamp+=1
+    net.Timestamp+=1
     net.roundMessages=[]Message{}
     net.roundDestinations=[]int{}
     for i:=0;i<len(net.nodes);i++{
@@ -108,10 +108,10 @@ func (net *Network)Round(){
         switch err{
             case chk:
                 if destination.node.IsFull(){
-                    net.fullNodes+=1
+                    net.FullNodes+=1
                 }
             case *LinearlyDependentChunk:
-                    net.wastedBandwidth+=1
+                    net.WastedBandwidth+=1
             default:
                 panic(fmt.Sprintf("Unhandled error: %v", err))
         }
@@ -119,6 +119,6 @@ func (net *Network)Round(){
 }
 
 func (net *Network) AllNodesFull()bool{
-    return net.fullNodes==len(net.nodes)
+    return net.FullNodes==len(net.nodes)
 }
 
