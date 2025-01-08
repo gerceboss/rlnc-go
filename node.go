@@ -21,7 +21,7 @@ type Chunk struct{
 type Node struct{
 	chunks [][]ristretto.Scalar
 	commitments []ristretto.Point //ristretto point
-	eschelon Eschelon
+	echelon Echelon
 	committer Committer
 }
 
@@ -86,11 +86,11 @@ func (m *Message) Coefficients() []ristretto.Scalar{
 
 
 func NewNode(committer Committer,numChunks int) *Node{
-	eschelon:=NewEschelon(numChunks)
+	echelon:=NewEschelon(numChunks)
 	return &Node{
 		chunks: [][]ristretto.Scalar{},
 		commitments: []ristretto.Point{}, //ristretto point
-		eschelon : *eschelon, 
+		echelon : *echelon, 
 		committer :committer,
 	}
 }
@@ -119,7 +119,7 @@ func NewSource(committer Committer,block []byte,numChunks int)(*Node,error){
 	return &Node{
 		chunks: chunks,
 		commitments: commitments,
-		eschelon: *NewIdentity(numChunks),
+		echelon: *NewIdentity(numChunks),
 		committer: committer,
 	},nil
 }
@@ -165,7 +165,7 @@ func (n *Node) Receive(message Message)ReceiveError{
 	}
 
 	//Verify linear independence
-	if !n.eschelon.AddRow(message.chunk.coefficients){
+	if !n.echelon.AddRow(message.chunk.coefficients){
 		return *LinearlyDependentChunk
 	}
 
@@ -192,7 +192,7 @@ func (n *Node) Send() (Message,error){
 }
 
 func (n *Node) LinearCombChunk(scalars []byte)Chunk{
-	coefficients:=n.eschelon.CompoundScalars(scalars)
+	coefficients:=n.echelon.CompoundScalars(scalars)
 	data:=n.LinearCombData(scalars)
 	return Chunk{
 		coefficients: coefficients,
@@ -221,7 +221,7 @@ func (n *Node) LinearCombData(scalars []byte)[]ristretto.Scalar{
 }
 
 func (n *Node) Decode()([]byte,error){
-	inverse,err:=n.eschelon.Inverse()
+	inverse,err:=n.echelon.Inverse()
 	if err!=nil{
 		return []byte{},err
 	}
@@ -249,7 +249,7 @@ func (n *Node) Commitments() []ristretto.Point{
 }
 
 func (n *Node) IsFull() bool{
-	return n.eschelon.IsFull()
+	return n.echelon.IsFull()
 }
 
 

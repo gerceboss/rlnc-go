@@ -7,43 +7,43 @@ import (
 	"github.com/bwesterb/go-ristretto"
 )
 
-type Eschelon struct{
+type Echelon struct{
 	Coefficients [][]ristretto.Scalar
-	Eschelon [][]ristretto.Scalar
+	Echelon [][]ristretto.Scalar
 	Transform [][]ristretto.Scalar
 }
 
-func NewEschelon(size int) *Eschelon{
+func NewEschelon(size int) *Echelon{
 	transform := make([][]ristretto.Scalar, size)
 	for i := range transform {
 		transform[i] = make([]ristretto.Scalar, size)
 		transform[i][i].SetOne() 
 	}
-	return &Eschelon{
+	return &Echelon{
 		Coefficients :[][]ristretto.Scalar{},
-		Eschelon :[][]ristretto.Scalar{},
+		Echelon :[][]ristretto.Scalar{},
 		Transform:transform,
 	}
 
 }
-func NewIdentity(size int) *Eschelon{
-	eschelon:=make([][]ristretto.Scalar,size)
-	for i:=range eschelon{
-		eschelon[i]=make([]ristretto.Scalar,size)
-		eschelon[i][i].SetOne()
+func NewIdentity(size int) *Echelon{
+	echelon:=make([][]ristretto.Scalar,size)
+	for i:=range echelon{
+		echelon[i]=make([]ristretto.Scalar,size)
+		echelon[i][i].SetOne()
 	}
-	return &Eschelon{
-		Coefficients: eschelon,
-		Eschelon: eschelon,
-		Transform: eschelon,
+	return &Echelon{
+		Coefficients: echelon,
+		Echelon: echelon,
+		Transform: echelon,
 	}
 }
 
-// returns true if the eschelon form is square.
-func (es *Eschelon)IsFull() bool{
+// returns true if the echelon form is square.
+func (es *Echelon)IsFull() bool{
 	return len(es.Coefficients)==len(es.Coefficients[0])
 }
- func (es *Eschelon)AddRow(row []ristretto.Scalar)bool{
+ func (es *Echelon)AddRow(row []ristretto.Scalar)bool{
 	var chk int
 	// var z ristretto.Scalar
 	for i:=range row{
@@ -59,7 +59,7 @@ func (es *Eschelon)IsFull() bool{
 		return false
 	}
 	if currentSize==0{
-		es.Eschelon = append(es.Eschelon, row)
+		es.Echelon = append(es.Echelon, row)
 		es.Coefficients = append(es.Coefficients, row)
 		return true
 	}
@@ -68,7 +68,7 @@ func (es *Eschelon)IsFull() bool{
 	i:=0
 	newEschelonRow:=row
 	for i<currentSize{
-		j := firstEntry(es.Eschelon[i])
+		j := firstEntry(es.Echelon[i])
 		k := firstEntry(newEschelonRow)
 
 		if k == -1 { // If no entry exists in the new row, return false
@@ -83,13 +83,13 @@ func (es *Eschelon)IsFull() bool{
 			break
 		}
 
-		pivot := es.Eschelon[i][j]
+		pivot := es.Echelon[i][j]
 		f := newEschelonRow[j]
 
 		for index := range newEschelonRow {
 			var r1,r2 ristretto.Scalar
 			r1.Mul(&pivot,&newEschelonRow[index]) 
-			r2.Mul(&es.Eschelon[i][index],&f)
+			r2.Mul(&es.Echelon[i][index],&f)
 			newEschelonRow[index].Sub(&r1,&r2)
 		}
 		for index := range tr {
@@ -112,7 +112,7 @@ func (es *Eschelon)IsFull() bool{
 	}
 
 	newEschelonRowSlice:=[][]ristretto.Scalar{newEschelonRow}
-	es.Eschelon = append(es.Eschelon[:i], append(newEschelonRowSlice, es.Eschelon[i:]...)...)
+	es.Echelon = append(es.Echelon[:i], append(newEschelonRowSlice, es.Echelon[i:]...)...)
 	es.Coefficients = append(es.Coefficients, row)
 
 	if i < currentSize {
@@ -125,7 +125,7 @@ func (es *Eschelon)IsFull() bool{
 	return true
 }
 
-func (es *Eschelon) CompoundScalars(scalars []byte) []ristretto.Scalar{
+func (es *Echelon) CompoundScalars(scalars []byte) []ristretto.Scalar{
 	result := make([]ristretto.Scalar, len(es.Transform))
 
 	// check if i, j are in wrong position 
@@ -158,12 +158,12 @@ for i, val := range row {
 }
 return -1 // Return -1 if no entry is found
 }
-func (es *Eschelon)Inverse()([][]ristretto.Scalar,error){
+func (es *Echelon)Inverse()([][]ristretto.Scalar,error){
 	if len(es.Coefficients)==0{
 		return nil,errors.New("no coefficients to decode")
 	}
-	if len(es.Eschelon)!=len(es.Coefficients[0]){
-		return nil,errors.New("the eschelon form is not square")
+	if len(es.Echelon)!=len(es.Coefficients[0]){
+		return nil,errors.New("the echelon form is not square")
 	}
 	inverse := make([][]ristretto.Scalar, len(es.Transform))
 	for i := range es.Transform {
@@ -171,16 +171,16 @@ func (es *Eschelon)Inverse()([][]ristretto.Scalar,error){
 		copy(inverse[i], es.Transform[i])
 	}
 
-	for i := len(es.Eschelon) - 1; i >= 0; i-- {
+	for i := len(es.Echelon) - 1; i >= 0; i-- {
 		var pivot ristretto.Scalar
-		pivot.Inverse(&es.Eschelon[i][i])
+		pivot.Inverse(&es.Echelon[i][i])
 		for k := range inverse[i] {
 			inverse[i][k].Mul(&pivot,&inverse[i][k])
 		}
-		for j := i + 1; j < len(es.Eschelon); j++ {
+		for j := i + 1; j < len(es.Echelon); j++ {
 			var diff ristretto.Scalar
-			diff.Mul(&es.Eschelon[i][j],&pivot)
-			for k := range es.Eschelon {
+			diff.Mul(&es.Echelon[i][j],&pivot)
+			for k := range es.Echelon {
 				var actualDiff ristretto.Scalar
 				actualDiff.Mul(&inverse[j][k],&diff)
 				inverse[i][k].Sub(&inverse[i][k],&actualDiff)
