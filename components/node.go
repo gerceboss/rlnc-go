@@ -1,4 +1,4 @@
-package main
+package components
 
 import (
 	"errors"
@@ -154,14 +154,14 @@ func (n *Node) Receive(message Message)ReceiveError{
 		return *ExistingChunksMismatch(err.Error())
 	}
 
-	err2:= n.CheckExistingChunks(message.chunk)
-	if err2!=nil{
-		return *ExistingChunksMismatch(err2.Error())
+	err= n.CheckExistingChunks(message.chunk)
+	if err!=nil{
+		return *ExistingChunksMismatch(err.Error())
 	}
 
-	err3:=message.Verify(n.committer)
-	if err3!=nil{
-		return *InvalidMessage(err3.Error())
+	err=message.Verify(n.committer)
+	if err!=nil{
+		return *InvalidMessage(err.Error())
 	}
 
 	//Verify linear independence
@@ -174,7 +174,10 @@ func (n *Node) Receive(message Message)ReceiveError{
 	if len(n.commitments)==0{
 		n.commitments=message.commitments
 	}
-	return ReceiveError{}
+	return ReceiveError{
+		Type: "",
+		Message: "",
+	}
 }
 
 func (n *Node) Send() (Message,error){
